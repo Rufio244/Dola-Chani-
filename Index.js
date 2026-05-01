@@ -93,3 +93,48 @@ app.post("/chani/office/create", async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+/**
+ * 🧠 SUPER BRAIN: CONSENSUS ENGINE
+ * รวมสมอง OpenAI และ Gemini เข้าด้วยกัน
+ */
+app.post("/chani/super-brain", async (req, res) => {
+    const { prompt } = req.body;
+
+    try {
+        // 1. ให้ทั้งสองสมองตอบพร้อมกัน
+        const [resOpenAI, resGemini] = await Promise.all([
+            AI_ENGINES.openai(prompt),
+            AI_ENGINES.gemini(prompt)
+        ]);
+
+        // 2. ส่งคำตอบทั้งคู่ให้ AI ตัวที่สาม (หรือตัวใดตัวหนึ่ง) ทำการ "Merge" และ "Verify"
+        const mergePrompt = `
+        I have two expert answers for the prompt: "${prompt}"
+        Answer 1: ${resOpenAI}
+        Answer 2: ${resGemini}
+        
+        Your Task: Compare these two answers, find the common truths, resolve any conflicts, 
+        and combine them into one SUPERIOR, highly accurate, and comprehensive response in Thai.
+        `;
+
+        const finalSuperAnswer = await AI_ENGINES.openai(mergePrompt);
+
+        // บันทึกความจำระดับ Super Brain
+        db.skills.push({ 
+            id: uuidv4(), 
+            type: "Super_Brain_Integration", 
+            topic: prompt.slice(0, 50), 
+            date: new Date() 
+        });
+        saveDB();
+
+        res.json({
+            success: true,
+            super_answer: finalSuperAnswer,
+            individual_views: { openai: resOpenAI, gemini: resGemini }
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: "Super Brain Sync Error: " + err.message });
+    }
+});
