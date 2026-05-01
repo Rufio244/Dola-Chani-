@@ -138,3 +138,51 @@ app.post("/chani/super-brain", async (req, res) => {
         res.status(500).json({ error: "Super Brain Sync Error: " + err.message });
     }
 });
+/**
+ * 🚀 CORE EXECUTION: THE SUPER BRAIN (DEFAULT MODE)
+ * ระบบจะใช้สมองร่วมกันระหว่าง OpenAI และ Gemini โดยอัตโนมัติ
+ */
+app.post("/chani/execute", auth, async (req, res) => {
+    const { prompt } = req.body;
+
+    try {
+        console.log("🧠 Super Brain is processing...");
+
+        // 1. เรียกใช้งานทั้งสองสมองพร้อมกันเพื่อความรวดเร็ว
+        const [ans1, ans2] = await Promise.all([
+            AI_ENGINES.openai(prompt).catch(e => `OpenAI Error: ${e.message}`),
+            AI_ENGINES.gemini(prompt).catch(e => `Gemini Error: ${e.message}`)
+        ]);
+
+        // 2. ขั้นตอน Synthesis (การรวมสมอง) 
+        // ให้ AI วิเคราะห์จุดที่ดีที่สุดของทั้งสองคำตอบมาสร้างเป็น Super Answer
+        const synthesisPrompt = `
+        Prompt: "${prompt}"
+        Perspective A: ${ans1}
+        Perspective B: ${ans2}
+        
+        Task: รวมคำตอบจากทั้งสองแหล่งเข้าด้วยกัน โดยเลือกส่วนที่ถูกต้องและลึกซึ้งที่สุด 
+        หากมีความขัดแย้งกัน ให้ใช้เหตุผลที่สมเหตุสมผลที่สุด และสรุปออกมาเป็นคำตอบเดียวที่สมบูรณ์ในภาษาไทย
+        `;
+
+        const superAnswer = await AI_ENGINES.openai(synthesisPrompt);
+
+        // 3. บันทึกลงฐานข้อมูลความจำ
+        db.history.push({
+            prompt,
+            superAnswer,
+            sources: { openai: ans1, gemini: ans2 },
+            date: new Date()
+        });
+        saveDB();
+
+        res.json({
+            success: true,
+            answer: superAnswer,
+            logic: "Processed via Super Brain (OpenAI + Gemini Integration)"
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: "Super Brain Critical Failure: " + err.message });
+    }
+});
