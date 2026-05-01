@@ -1,0 +1,10 @@
+{
+  "category": "Animal_Language_Decoding",
+  "source": "Owner_Audio_Notes",
+  "analysis_logic": {
+    "rhythm_patterns": "วิเคราะห์จากจังหวะการรับ-ส่ง และความสั้นยาวของโทนเสียง",
+    "frequency_shift": "การเปลี่ยนแปลงของระดับเสียงที่ระบุถึงอารมณ์ฉับพลัน",
+    "context_binding": "เชื่อมโยงรูปแบบเสียงเข้ากับพฤติกรรมทางกายภาพที่บันทึกไว้"
+  },
+  "ready_to_use": true
+}
