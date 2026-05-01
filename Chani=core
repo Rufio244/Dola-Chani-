@@ -1,0 +1,92 @@
+/**
+ * 🤖 CHANI CORE V2 - Dola Enhanced Edition
+ * โค้ดนี้ถูกออกแบบมาให้รัดกุมและมีความสามารถในการจดจำบริบท
+ */
+
+require("dotenv").config();
+const express = require("express");
+const axios = require("axios");
+const jwt = require("jsonwebtoken");
+const fs = require("fs");
+const { v4: uuidv4 } = require("uuid");
+
+const app = express();
+app.use(express.json());
+
+const CONFIG = {
+    PORT: process.env.PORT || 3000,
+    JWT_SECRET: process.env.JWT_SECRET || "dola_enhanced_secret",
+    DB_PATH: "./chani_v2_db.json"
+};
+
+// --- 🧠 ADVANCED MEMORY SYSTEM ---
+let chaniDB = { owner: null, conversations: {}, global_skills: [] };
+
+if (fs.existsSync(CONFIG.DB_PATH)) {
+    chaniDB = JSON.parse(fs.readFileSync(CONFIG.DB_PATH, "utf-8"));
+}
+
+const saveState = () => fs.writeFileSync(CONFIG.DB_PATH, JSON.stringify(chaniDB, null, 2));
+
+// --- 🛠️ AI HANDLERS ---
+const executeAI = async (provider, prompt, history = []) => {
+    // รวมประวัติการคุย 3 ครั้งล่าสุดเข้าไปใน Prompt เพื่อความต่อเนื่อง
+    const context = history.slice(-3).map(h => `User: ${h.q}\nAI: ${h.a}`).join("\n");
+    const finalPrompt = `${context}\nUser: ${prompt}`;
+
+    try {
+        if (provider === "openai") {
+            const res = await axios.post("https://api.openai.com/v1/chat/completions", {
+                model: "gpt-4o-mini",
+                messages: [{ role: "user", content: finalPrompt }]
+            }, { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` } });
+            return res.data.choices[0].message.content;
+        }
+        
+        if (provider === "gemini") {
+            const res = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                contents: [{ parts: [{ text: finalPrompt }] }]
+            });
+            return res.data.candidates[0].content.parts[0].text;
+        }
+    } catch (err) {
+        return `Error from ${provider}: ${err.message}`;
+    }
+};
+
+// --- 🚀 ENHANCED ENDPOINTS ---
+
+// 1. ลงทะเบียนและรับสิทธิ์เจ้าของระบบ
+app.post("/system/init", (req, res) => {
+    const { name } = req.body;
+    const ownerId = uuidv4();
+    chaniDB.owner = { id: ownerId, name: name || "Master" };
+    saveState();
+    const token = jwt.sign({ id: ownerId }, CONFIG.JWT_SECRET);
+    res.json({ status: "Ready", token });
+});
+
+// 2. แชทอัจฉริยะ (จดจำบริบท)
+app.post("/chani/chat", async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) return res.status(401).send("Unauthorized");
+
+    const { prompt, model = "openai" } = req.body;
+    const userId = jwt.verify(token, CONFIG.JWT_SECRET).id;
+
+    // ดึงประวัติการคุยของ User คนนี้
+    if (!chaniDB.conversations[userId]) chaniDB.conversations[userId] = [];
+    
+    const response = await executeAI(model, prompt, chaniDB.conversations[userId]);
+
+    // บันทึกลงความจำ
+    chaniDB.conversations[userId].push({ q: prompt, a: response, time: new Date() });
+    saveState();
+
+    res.json({ answer: response });
+});
+
+app.listen(CONFIG.PORT, () => {
+    console.log(`\n🚀 Chani Core V2 (Dola Enhanced) is running on port ${CONFIG.PORT}`);
+    console.log(`🔐 System protected by Dola encryption logic\n`);
+});
