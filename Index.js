@@ -46,3 +46,50 @@ app.post("/chani/translate-animal", async (req, res) => {
 
     res.json(result);
 });
+/**
+ * 📄 OFFICE DOCUMENT ENGINE
+ * เรียนรู้โครงสร้างจาก MS Office เพื่อร่างเอกสารอัตโนมัติ
+ */
+const DOCUMENT_TEMPLATES = {
+    word: (content) => `[Structure: MS Word Business Letter]\n\n${content}`,
+    excel: (data) => `[Structure: MS Excel Spreadsheet Layout]\nFormat: CSV/Table\n\n${data}`,
+    ppt: (topic) => `[Structure: MS PowerPoint Presentation]\nSlide 1: Title\nSlide 2: Outline\n\n${topic}`
+};
+
+/**
+ * 🚀 ENDPOINT สำหรับจัดทำเอกสาร
+ */
+app.post("/chani/office/create", async (req, res) => {
+    const { type, topic, details, language = "Thai" } = req.body;
+    
+    // สร้าง Prompt ที่เรียนรู้จากรูปแบบ Microsoft Office
+    const officePrompt = `
+    Act as a Microsoft Office Expert. 
+    Task: Create a professional ${type} document in ${language}.
+    Topic: ${topic}
+    Details: ${details}
+    Requirements: Use standard professional formatting (Headings, Bullet points, Professional tone).
+    `;
+
+    try {
+        const rawContent = await AI_ENGINES.openai(officePrompt);
+        const formattedContent = DOCUMENT_TEMPLATES[type] ? DOCUMENT_TEMPLATES[type](rawContent) : rawContent;
+
+        // บันทึกลง Skill (เพื่อให้ระบบจำรูปแบบที่เจ้าของชอบ)
+        db.skills.push({ 
+            id: uuidv4(), 
+            type: `Document_Creation_${type}`, 
+            topic, 
+            createdAt: new Date() 
+        });
+        saveDB();
+
+        res.json({
+            success: true,
+            type: type,
+            content: formattedContent
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
